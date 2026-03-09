@@ -1,0 +1,144 @@
+<%- include('partials/app-shell', { pageTitle: '审计与会话', activeNav: 'audit', user, currentUser, flashes, flashMessages, meta, appMeta }) %>
+<%
+  const auditEntries = safeArray(auditLogs || entries || []);
+  const sessions = safeArray(onlineSessions || sessionsList || []);
+  const failures = safeArray(authFailures || failedAttempts || []);
+%>
+<section class="hero">
+  <div class="hero-header">
+    <div>
+      <span class="badge">审计与在线连接</span>
+      <h1>追踪管理员动作与当前在线 VPN 用户</h1>
+      <p>适合查看谁改了配置、谁重置了密码，以及哪些连接需要被立即断开。</p>
+    </div>
+    <div class="status-row">
+      <span class="badge">审计条目 <%= auditEntries.length %></span>
+      <span class="badge">在线会话 <%= sessions.length %></span>
+    </div>
+  </div>
+</section>
+
+<div class="grid-two" id="sessions">
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">在线会话</h3>
+        <div class="table-meta">支持按用户名定向踢线。</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>用户名</th>
+            <th>来源地址</th>
+            <th>虚拟地址</th>
+            <th>连接时间</th>
+            <th>上传 / 下载</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (sessions.length) { %>
+            <% sessions.forEach((session) => { %>
+              <tr>
+                <td><strong><%= session.username || session.commonName || '--' %></strong></td>
+                <td><%= session.remoteAddress || '--' %></td>
+                <td><%= session.virtualAddress || '--' %></td>
+                <td><%= fmtDate(session.connectedAt || session.since) %></td>
+                <td><%= session.bytesIn || 0 %> / <%= session.bytesOut || 0 %></td>
+                <td>
+                  <form method="post" action="/audit/sessions/<%= encodeURIComponent(session.username || session.commonName || '') %>/disconnect">
+                    <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+                    <button class="button button-small button-danger" type="submit">断开</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">
+                  <h3>当前没有在线会话</h3>
+                  <p>OpenVPN 管理接口会把在线用户名与虚拟地址同步到这里。</p>
+                </div>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">最近认证失败</h3>
+        <div class="table-meta">帮助识别撞库、错误密码或客户端配置问题。</div>
+      </div>
+    </div>
+    <div class="stacked-list">
+      <% if (failures.length) { %>
+        <% failures.slice(0, 8).forEach((failure) => { %>
+          <div class="list-item">
+            <div class="status-row">
+              <strong><%= failure.username || '--' %></strong>
+              <span class="status-pill is-warning"><%= failure.reason || 'auth_failed' %></span>
+            </div>
+            <div class="audit-meta"><%= failure.remoteAddress || '--' %> · <%= fmtDate(failure.createdAt) %></div>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <div class="empty-state">
+          <h3>近期待认证失败为空</h3>
+          <p>如果出现密码错误或过期用户尝试连接，这里会显示摘要。</p>
+        </div>
+      <% } %>
+    </div>
+  </section>
+</div>
+
+<section class="table-card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">审计日志</h3>
+      <div class="table-meta">覆盖配置保存、应用、用户维护、密码重置与踢线操作。</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>操作者</th>
+          <th>动作</th>
+          <th>目标</th>
+          <th>摘要</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (auditEntries.length) { %>
+          <% auditEntries.forEach((entry) => { %>
+            <tr>
+              <td><%= fmtDate(entry.createdAt) %></td>
+              <td><%= entry.actorName || entry.actorUsername || 'system' %></td>
+              <td><span class="status-pill <%= statusTone(entry.status || 'ok') %>"><%= entry.actionType || entry.action || '--' %></span></td>
+              <td><%= entry.targetType || '--' %> <%= entry.targetLabel ? `· ${entry.targetLabel}` : '' %></td>
+              <td><%= entry.summary || entry.message || '--' %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="5">
+              <div class="empty-state">
+                <h3>暂无审计记录</h3>
+                <p>一旦开始创建用户或应用配置，这里会持续累积操作时间线。</p>
+              </div>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+<%- include('partials/app-shell-bottom') %>

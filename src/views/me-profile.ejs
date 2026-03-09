@@ -1,0 +1,120 @@
+<%- include('partials/app-shell', { pageTitle: '我的配置', activeNav: 'my-profile', user, currentUser, flashes, flashMessages, meta, appMeta }) %>
+<%
+  const profile = myProfile || profileData || {};
+  const downloads = safeArray(downloadsList || profileExports || []);
+  const connections = safeArray(connectionHistory || sessions || []);
+%>
+<section class="hero">
+  <div class="hero-header">
+    <div>
+      <span class="badge">普通用户门户</span>
+      <h1><%= profile.displayName || profile.username || currentUser?.username || '我的配置' %></h1>
+      <p>下载你的 OpenVPN 连接配置，查看最近登录与历史连接记录。</p>
+    </div>
+    <div class="status-row">
+      <span class="status-pill <%= statusTone(profile.status || currentUser?.status || 'active') %>"><%= profile.status || currentUser?.status || 'active' %></span>
+      <span class="badge">角色 <%= currentUser?.role || 'user' %></span>
+    </div>
+  </div>
+</section>
+
+<div class="grid-two">
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h3>账号状态</h3>
+        <div class="table-meta">你的门户账号同时也是 OpenVPN 的连接账号。</div>
+      </div>
+    </div>
+    <div class="kv-grid">
+      <div class="kv"><small>用户名</small><strong><%= profile.username || currentUser?.username || '--' %></strong></div>
+      <div class="kv"><small>最近 Web 登录</small><strong><%= fmtDate(profile.lastWebLoginAt || currentUser?.lastWebLoginAt) %></strong></div>
+      <div class="kv"><small>最近 VPN 登录</small><strong><%= fmtDate(profile.lastVpnLoginAt) %></strong></div>
+      <div class="kv"><small>到期时间</small><strong><%= fmtDate(profile.expiresAt) %></strong></div>
+    </div>
+  </section>
+
+  <section class="form-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">下载连接配置</h3>
+        <div class="table-meta">生成的 `.ovpn` 文件默认要求在客户端输入你的用户名密码。</div>
+      </div>
+    </div>
+    <form method="post" action="/me/profile/generate" class="form-grid">
+      <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+      <div class="field">
+        <label for="format">导出格式</label>
+        <select id="format" name="format">
+          <% ['inline_ovpn', 'zip'].forEach((format) => { %>
+            <option value="<%= format %>" <%= (profile.defaultFormat || 'inline_ovpn') === format ? 'selected' : '' %>><%= format %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="remote">远端地址覆盖</label>
+        <input id="remote" type="text" name="remote" value="<%= profile.remoteOverride || '' %>" placeholder="留空则使用管理员设置">
+      </div>
+      <div class="field is-full form-actions">
+        <button class="button button-primary" type="submit">生成最新配置</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="grid-two">
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">最近下载</h3>
+      </div>
+    </div>
+    <div class="stacked-list">
+      <% if (downloads.length) { %>
+        <% downloads.forEach((item) => { %>
+          <div class="list-item">
+            <div class="status-row">
+              <strong><%= item.format || 'inline_ovpn' %></strong>
+              <span class="meta"><%= fmtDate(item.createdAt || item.downloadedAt) %></span>
+            </div>
+            <div class="row-actions" style="margin-top: 12px;">
+              <a class="button button-small button-ghost" href="/me/profile/download/<%= item.id || '' %>">下载</a>
+            </div>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <div class="empty-state">
+          <h3>还没有下载记录</h3>
+          <p>生成配置后，这里会显示最近的下载历史。</p>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">连接历史</h3>
+      </div>
+    </div>
+    <div class="stacked-list">
+      <% if (connections.length) { %>
+        <% connections.forEach((connection) => { %>
+          <div class="list-item">
+            <div class="status-row">
+              <strong><%= connection.remoteAddress || '--' %></strong>
+              <span class="status-pill <%= statusTone(connection.status || 'connected') %>"><%= connection.status || 'connected' %></span>
+            </div>
+            <div class="audit-meta"><%= fmtDate(connection.connectedAt || connection.createdAt) %> · 虚拟地址 <%= connection.virtualAddress || '--' %></div>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <div class="empty-state">
+          <h3>暂无连接历史</h3>
+          <p>成功连接 OpenVPN 后，最近连接会显示在这里。</p>
+        </div>
+      <% } %>
+    </div>
+  </section>
+</div>
+<%- include('partials/app-shell-bottom') %>

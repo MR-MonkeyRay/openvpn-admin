@@ -1,0 +1,75 @@
+<%- include('partials/helpers') %>
+<%- include('partials/layout-top', { pageTitle: '登录' }) %>
+<%
+  const flashes = safeArray(flashMessages || flashes || []);
+  const form = formValues || {};
+  const loginMeta = meta || {};
+%>
+<div class="login-shell">
+  <div class="login-grid">
+    <section class="login-card login-hero">
+      <span class="badge">MVP 管理端</span>
+      <h1>在一处控制 OpenVPN、账号和连接入口。</h1>
+      <p>这套界面面向单台 Linux 宿主机，管理员可以同步维护 Web 账号和 OpenVPN 连接密码，并按需导出客户端配置。</p>
+
+      <div class="inline-metrics">
+        <div class="kv">
+          <small>OpenVPN 实例</small>
+          <strong><%= loginMeta.instanceName || 'server' %></strong>
+        </div>
+        <div class="kv">
+          <small>默认认证</small>
+          <strong>用户名 + 密码</strong>
+        </div>
+        <div class="kv">
+          <small>管理接口</small>
+          <strong><%= loginMeta.managementMode || 'Unix Socket' %></strong>
+        </div>
+      </div>
+
+      <ul class="login-list">
+        <li>统一账号体系：Web UI 与 OpenVPN 连接共用同一份凭据。</li>
+        <li>配置变更前可先预览 diff，并保留可回滚版本。</li>
+        <li>支持查看在线连接、认证失败和下载记录。</li>
+      </ul>
+    </section>
+
+    <section class="login-card">
+      <div class="panel-header">
+        <div>
+          <div class="nav-label">安全登录</div>
+          <h2 class="login-title">输入账号凭据</h2>
+        </div>
+        <% if (loginMeta.tlsMode) { %>
+          <span class="status-pill <%= statusTone(loginMeta.tlsMode === 'https' ? 'up' : 'warning') %>"><%= loginMeta.tlsMode %></span>
+        <% } %>
+      </div>
+
+      <% flashes.forEach((flash) => { %>
+        <div class="flash flash-<%= flash.type || 'error' %>"><%= flash.message || flash %></div>
+      <% }) %>
+
+      <form method="post" action="/auth/login" class="form-grid">
+        <% if (csrfToken) { %>
+          <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
+        <% } %>
+        <div class="field is-full">
+          <label for="username">用户名</label>
+          <input id="username" type="text" name="username" autocomplete="username" value="<%= form.username || '' %>" placeholder="例如 admin 或 vpn-ops">
+          <div class="field-help">管理员账号与普通用户账号共用这套登录入口。</div>
+        </div>
+        <div class="field is-full">
+          <label for="password">密码</label>
+          <input id="password" type="password" name="password" autocomplete="current-password" placeholder="输入密码">
+          <div class="field-help">该密码也会被普通用户用于 OpenVPN 客户端 `auth-user-pass` 认证。</div>
+        </div>
+        <div class="field is-full">
+          <button class="button button-primary" type="submit">进入控制台</button>
+        </div>
+      </form>
+
+      <p class="footer-note">建议在反向代理上启用 HTTPS、限流和访问来源限制。</p>
+    </section>
+  </div>
+</div>
+<%- include('partials/layout-bottom') %>

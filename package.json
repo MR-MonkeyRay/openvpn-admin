@@ -1,0 +1,22 @@
+{
+  "name": "openvpn-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "preflight": "node --input-type=module -e \"import('./src/server.js').then(({ ensureProductionRuntimeConfig }) => { ensureProductionRuntimeConfig(); console.log('preflight ok'); })\"",
+    "healthcheck": "curl -fsS ${HEALTHCHECK_URL:-http://127.0.0.1:${PORT:-${APP_PORT:-3000}}/health}",
+    "start": "node src/server.js",
+    "build": "node -e \"console.log('No build step required')\"",
+    "test": "node --test",
+    "lint": "find src tests scripts -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "multer": "^2.0.2"
+  }
+}

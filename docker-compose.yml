@@ -1,0 +1,65 @@
+services:
+  openvpn:
+    build:
+      context: .
+      dockerfile: docker/openvpn/Dockerfile
+    container_name: openvpn
+    restart: unless-stopped
+    env_file:
+      - .env
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "${OVPN_PORT:-1194}:${OVPN_PORT:-1194}/${OVPN_PROTO:-udp}"
+    volumes:
+      - openvpn_server:/etc/openvpn/server
+      - openvpn_scripts:/etc/openvpn/scripts
+      - openvpn_run:/run/openvpn
+      - app_data:/var/lib/openvpn-admin:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -S /run/openvpn/server-management.sock && pgrep openvpn >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  openvpn-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openvpn-admin
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      openvpn:
+        condition: service_started
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - openvpn_server:${APP_OPENVPN_SERVER_DIR:-/mnt/openvpn/server}
+      - openvpn_scripts:${APP_OPENVPN_SCRIPTS_DIR:-/mnt/openvpn/scripts}
+      - openvpn_run:${APP_OPENVPN_RUN_DIR:-/mnt/openvpn/run}
+      - app_data:/app/data
+      - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    command: ["node", "src/server.js"]
+
+volumes:
+  openvpn_server:
+  openvpn_scripts:
+  openvpn_run:
+  app_data:
+  app_logs:

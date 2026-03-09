@@ -1,0 +1,189 @@
+<%- include('partials/app-shell', { pageTitle: '配置', activeNav: 'config', user, currentUser, flashes, flashMessages, meta, appMeta }) %>
+<%
+  const config = openvpnConfig || configForm || {};
+  const versions = safeArray(configVersions || versionsList);
+  const diffPreview = diffText || previewDiff || '';
+  const validation = validationResult || {};
+%>
+<section class="hero">
+  <div class="hero-header">
+    <div>
+      <span class="badge">Server 配置</span>
+      <h1>编辑宿主机上的真实 OpenVPN 参数</h1>
+      <p>保存前先做表单校验和 `test-parse`，应用失败时可自动回滚到最近稳定版本。</p>
+    </div>
+    <div class="status-row">
+      <span class="status-pill <%= statusTone(validation.status || 'ok') %>"><%= validation.status || 'ready' %></span>
+      <span class="badge">当前版本 <%= config.version || 'v1' %></span>
+    </div>
+  </div>
+</section>
+
+<div class="grid-two">
+  <section class="form-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">核心连接参数</h3>
+        <div class="table-meta">把服务端配置映射为更安全的表单操作。</div>
+      </div>
+    </div>
+
+    <form method="post" action="/config/save" class="form-grid">
+      <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+      <div class="field">
+        <label for="bindAddress">监听地址</label>
+        <input id="bindAddress" name="bindAddress" type="text" value="<%= config.bindAddress || '0.0.0.0' %>">
+      </div>
+      <div class="field">
+        <label for="port">监听端口</label>
+        <input id="port" name="port" type="number" value="<%= config.port || 1194 %>">
+      </div>
+      <div class="field">
+        <label for="protocol">协议</label>
+        <select id="protocol" name="protocol">
+          <% ['udp', 'tcp-server'].forEach((proto) => { %>
+            <option value="<%= proto %>" <%= (config.protocol || 'udp') === proto ? 'selected' : '' %>><%= proto %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="network">地址池</label>
+        <input id="network" name="network" type="text" value="<%= config.network || '10.8.0.0 255.255.255.0' %>">
+      </div>
+      <div class="field">
+        <label for="dnsServers">DNS</label>
+        <input id="dnsServers" name="dnsServers" type="text" value="<%= config.dnsServers || '1.1.1.1,8.8.8.8' %>">
+      </div>
+      <div class="field">
+        <label for="pushRoutes">Push 路由</label>
+        <input id="pushRoutes" name="pushRoutes" type="text" value="<%= config.pushRoutes || '192.168.10.0 255.255.255.0' %>">
+      </div>
+      <div class="field">
+        <label for="cipher">Cipher / Data Ciphers</label>
+        <input id="cipher" name="cipher" type="text" value="<%= config.cipher || config.dataCiphers || 'AES-256-GCM:AES-128-GCM' %>">
+      </div>
+      <div class="field">
+        <label for="auth">Auth</label>
+        <input id="auth" name="auth" type="text" value="<%= config.auth || 'SHA256' %>">
+      </div>
+      <div class="field">
+        <label for="ccdPath">CCD 路径</label>
+        <input id="ccdPath" name="ccdPath" type="text" value="<%= config.ccdPath || '/etc/openvpn/ccd' %>">
+      </div>
+      <div class="field">
+        <label for="logPath">日志路径</label>
+        <input id="logPath" name="logPath" type="text" value="<%= config.logPath || '/var/log/openvpn.log' %>">
+      </div>
+      <div class="field">
+        <label for="tlsMode">TLS 保护</label>
+        <select id="tlsMode" name="tlsMode">
+          <% ['tls-crypt', 'tls-auth', 'none'].forEach((mode) => { %>
+            <option value="<%= mode %>" <%= (config.tlsMode || 'tls-crypt') === mode ? 'selected' : '' %>><%= mode %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="keepalive">Keepalive</label>
+        <input id="keepalive" name="keepalive" type="text" value="<%= config.keepalive || '10 120' %>">
+      </div>
+
+      <div class="field is-full">
+        <div class="legend">认证策略</div>
+        <div class="callout">
+          <div class="status-row">
+            <span class="status-pill is-up">verify-client-cert none</span>
+            <span class="status-pill is-up">username-as-common-name</span>
+            <span class="status-pill is-up">auth-user-pass-verify via-file</span>
+          </div>
+          <p class="hint">MVP 固定为账号密码认证，无客户端证书。这里展示的是当前约束，避免误改。</p>
+        </div>
+      </div>
+
+      <div class="field is-full">
+        <label for="rawExtra">额外原始配置</label>
+        <textarea id="rawExtra" name="rawExtra" placeholder="例如 explicit-exit-notify 1"><%= config.rawExtra || '' %></textarea>
+        <div class="field-help">仅用于少量未表单化指令，保存前仍会参与统一校验。</div>
+      </div>
+
+      <div class="field is-full form-actions">
+        <button class="button button-secondary" type="submit" formaction="/config/preview">预览 diff</button>
+        <button class="button button-ghost" type="submit">保存草稿</button>
+        <button class="button button-primary" type="submit" formaction="/config/apply">保存并应用</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">diff 预览</h3>
+        <div class="table-meta">提交前先看配置文本差异。</div>
+      </div>
+      <span class="status-pill <%= statusTone(validation.status || 'ok') %>"><%= validation.message || '等待预览' %></span>
+    </div>
+    <% if (diffPreview) { %>
+      <div class="diff-box">
+        <pre><%= diffPreview %></pre>
+      </div>
+    <% } else { %>
+      <div class="empty-state">
+        <h3>还没有 diff 预览</h3>
+        <p>修改表单后点击“预览 diff”，这里会显示新增和删除的配置行。</p>
+      </div>
+    <% } %>
+  </section>
+</div>
+
+<section class="table-card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">配置版本</h3>
+      <div class="table-meta">保留最近 N 次备份，用于失败回滚。</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>版本</th>
+          <th>摘要</th>
+          <th>操作者</th>
+          <th>创建时间</th>
+          <th>状态</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (versions.length) { %>
+          <% versions.forEach((version) => { %>
+            <tr>
+              <td><strong><%= version.versionNo || version.version || '--' %></strong></td>
+              <td><%= version.diffSummary || version.summary || '--' %></td>
+              <td><%= version.createdBy || version.actor || 'system' %></td>
+              <td><%= fmtDate(version.createdAt) %></td>
+              <td><span class="status-pill <%= statusTone(version.applied ? 'up' : version.status || 'muted') %>"><%= version.applied ? 'applied' : (version.status || 'draft') %></span></td>
+              <td>
+                <div class="row-actions">
+                  <form method="post" action="/config/rollback/<%= version.id || version.versionNo || '0' %>">
+                    <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+                    <button class="button button-small button-ghost" type="submit">回滚</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">
+                <h3>尚未保存任何配置版本</h3>
+                <p>第一次成功保存或应用后，这里会显示版本历史。</p>
+              </div>
+            </td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+<%- include('partials/app-shell-bottom') %>

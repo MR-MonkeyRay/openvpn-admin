@@ -1,0 +1,163 @@
+<%- include('partials/app-shell', { pageTitle: '用户', activeNav: 'users', user, currentUser, flashes, flashMessages, meta, appMeta }) %>
+<%
+  const users = safeArray(userList || usersData || users);
+  const selectedUser = selected || selectedUserDetail || null;
+  const profileExports = safeArray(exportsList || profileExportsData || []);
+%>
+<section class="hero">
+  <div class="hero-header">
+    <div>
+      <span class="badge">用户与下载包</span>
+      <h1>统一维护 Web 登录与 OpenVPN 连接账号</h1>
+      <p>这里创建的用户名与密码会同步到 OpenVPN 的 `auth-user-pass-verify` 认证链路。</p>
+    </div>
+    <div class="status-row">
+      <span class="badge">总用户数 <%= users.length %></span>
+    </div>
+  </div>
+</section>
+
+<div class="grid-two">
+  <section class="form-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><%= selectedUser ? '编辑用户' : '创建用户' %></h3>
+        <div class="table-meta">管理员维护账号、角色、过期时间和下载权限。</div>
+      </div>
+    </div>
+
+    <form method="post" action="<%= selectedUser ? `/users/${selectedUser.id || ''}` : '/users' %>" class="form-grid">
+      <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+      <div class="field">
+        <label for="username">用户名</label>
+        <input id="username" type="text" name="username" value="<%= selectedUser?.username || '' %>" placeholder="例如 alice">
+      </div>
+      <div class="field">
+        <label for="displayName">显示名称</label>
+        <input id="displayName" type="text" name="displayName" value="<%= selectedUser?.displayName || '' %>" placeholder="例如 Alice Chen">
+      </div>
+      <div class="field">
+        <label for="role">角色</label>
+        <select id="role" name="role">
+          <% ['user', 'admin'].forEach((role) => { %>
+            <option value="<%= role %>" <%= (selectedUser?.role || 'user') === role ? 'selected' : '' %>><%= role %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="status">状态</label>
+        <select id="status" name="status">
+          <% ['active', 'disabled'].forEach((status) => { %>
+            <option value="<%= status %>" <%= (selectedUser?.status || 'active') === status ? 'selected' : '' %>><%= status %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="password">密码</label>
+        <input id="password" type="password" name="password" placeholder="<%= selectedUser ? '留空表示不修改' : '为用户设置连接密码' %>">
+      </div>
+      <div class="field">
+        <label for="expiresAt">到期时间</label>
+        <input id="expiresAt" type="datetime-local" name="expiresAt" value="<%= selectedUser?.expiresAt || '' %>">
+      </div>
+      <div class="field is-full">
+        <label for="note">备注</label>
+        <textarea id="note" name="note" placeholder="标注用途、责任人或审批说明"><%= selectedUser?.note || '' %></textarea>
+      </div>
+      <div class="field is-full form-actions">
+        <button class="button button-primary" type="submit"><%= selectedUser ? '保存用户' : '创建用户' %></button>
+        <% if (selectedUser) { %>
+          <button class="button button-secondary" type="submit" formaction="/users/<%= selectedUser.id || '' %>/reset-password">仅重置密码</button>
+        <% } %>
+      </div>
+    </form>
+  </section>
+
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">下载包与认证缓存</h3>
+        <div class="table-meta">修改用户后应立即同步认证缓存，以便 OpenVPN 新连接生效。</div>
+      </div>
+    </div>
+    <div class="stacked-list">
+      <div class="list-item">
+        <strong>认证链路</strong>
+        <p class="hint">`users` 表中的密码哈希更新后，系统会同步导出最小认证数据，供 `auth_verify via-file` 校验。</p>
+      </div>
+      <div class="list-item">
+        <strong>客户端下载</strong>
+        <p class="hint">生成的 `.ovpn` 文件默认包含 `auth-user-pass`、`auth-nocache` 和当前远端地址，不含客户端私钥。</p>
+      </div>
+      <div class="list-item">
+        <strong>最近导出</strong>
+        <div class="stacked-list">
+          <% if (profileExports.length) { %>
+            <% profileExports.slice(0, 4).forEach((item) => { %>
+              <div>
+                <strong><%= item.username || item.user?.username || '--' %></strong>
+                <div class="meta"><%= item.format || 'inline_ovpn' %> · <%= fmtDate(item.createdAt) %></div>
+              </div>
+            <% }) %>
+          <% } else { %>
+            <div class="meta">暂无导出记录</div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="table-card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title">用户列表</h3>
+      <div class="table-meta">状态、下载记录和最近连接时间会帮助管理员快速排查账号问题。</div>
+    </div>
+  </div>
+  <% if (users.length) { %>
+    <div class="user-card-list">
+      <% users.forEach((entry) => { %>
+        <article class="user-card">
+          <div class="panel-header">
+            <div>
+              <div class="card-title"><%= entry.displayName || entry.username || '--' %></div>
+              <div class="user-meta"><%= entry.username || '--' %> · <%= entry.role || 'user' %></div>
+            </div>
+            <span class="status-pill <%= statusTone(entry.status || 'active') %>"><%= entry.status || 'active' %></span>
+          </div>
+          <div class="kv-grid">
+            <div class="kv"><small>最近 Web 登录</small><strong><%= fmtDate(entry.lastWebLoginAt || entry.lastLoginAt) %></strong></div>
+            <div class="kv"><small>最近 VPN 登录</small><strong><%= fmtDate(entry.lastVpnLoginAt) %></strong></div>
+            <div class="kv"><small>最近下载</small><strong><%= fmtDate(entry.lastProfileDownloadAt) %></strong></div>
+            <div class="kv"><small>到期时间</small><strong><%= fmtDate(entry.expiresAt) %></strong></div>
+          </div>
+          <div class="row-actions" style="margin-top: 14px;">
+            <a class="button button-small button-ghost" href="/users?<%= `selected=${entry.id || ''}` %>">编辑</a>
+            <form method="post" action="/users/<%= entry.id || '' %>/profiles">
+              <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+              <button class="button button-small button-secondary" type="submit">生成配置</button>
+            </form>
+            <% if ((entry.status || 'active') === 'active') { %>
+              <form method="post" action="/users/<%= entry.id || '' %>/disable">
+                <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+                <button class="button button-small button-danger" type="submit">禁用</button>
+              </form>
+            <% } else { %>
+              <form method="post" action="/users/<%= entry.id || '' %>/enable">
+                <% if (csrfToken) { %><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><% } %>
+                <button class="button button-small button-secondary" type="submit">启用</button>
+              </form>
+            <% } %>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state">
+      <h3>还没有任何用户</h3>
+      <p>先创建一个普通用户，随后为 TA 生成专属 `.ovpn` 下载包。</p>
+    </div>
+  <% } %>
+</section>
+<%- include('partials/app-shell-bottom') %>

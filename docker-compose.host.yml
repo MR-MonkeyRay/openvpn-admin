@@ -1,0 +1,30 @@
+services:
+  openvpn-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openvpn-admin
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - ${HOST_OPENVPN_SERVER_DIR:-/etc/openvpn/server}:${APP_OPENVPN_SERVER_DIR:-/mnt/openvpn/server}
+      - ${HOST_OPENVPN_SCRIPTS_DIR:-/etc/openvpn/scripts}:${APP_OPENVPN_SCRIPTS_DIR:-/mnt/openvpn/scripts}
+      - ${HOST_OPENVPN_RUN_DIR:-/run/openvpn}:${APP_OPENVPN_RUN_DIR:-/mnt/openvpn/run}
+      - ${HOST_APP_DATA_DIR:-/var/lib/openvpn-admin}:/app/data
+      - ${HOST_APP_LOG_DIR:-/var/log/openvpn-admin}:/app/logs
+      - ${HOST_WRAPPER_PATH:-/usr/local/bin/openvpn-admin-wrapper}:${APP_WRAPPER_PATH:-/usr/local/bin/openvpn-admin-wrapper}:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    command: ["node", "src/server.js"]

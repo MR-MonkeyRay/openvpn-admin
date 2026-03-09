@@ -1,0 +1,41 @@
+<%
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function fmtDate(value) {
+  if (!value) return '--';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function statusTone(value) {
+  const normalized = String(value || '').toLowerCase();
+  if ([ 'active', 'enabled', 'healthy', 'running', 'up', 'ok', 'connected', 'success' ].includes(normalized)) return 'is-up';
+  if ([ 'warning', 'pending', 'expiring', 'degraded' ].includes(normalized)) return 'is-warning';
+  if ([ 'disabled', 'deleted', 'failed', 'error', 'down', 'disconnected' ].includes(normalized)) return 'is-danger';
+  return 'is-muted';
+}
+
+function navItems(role) {
+  if (role === 'user') {
+    return [
+      { href: '/me/profile', key: 'my-profile', label: '我的配置', hint: '下载与连接信息' }
+    ];
+  }
+
+  return [
+    { href: '/dashboard', key: 'dashboard', label: '总览', hint: '状态与告警' },
+    { href: '/config', key: 'config', label: '配置', hint: 'Server 与认证策略' },
+    { href: '/users', key: 'users', label: '用户', hint: '账号与下载包' },
+    { href: '/audit', key: 'audit', label: '审计与会话', hint: '日志与在线连接' }
+  ];
+}
+%>

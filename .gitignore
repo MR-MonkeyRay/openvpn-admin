@@ -1,0 +1,9 @@
+node_modules/
+.omx/
+
+data/*.db
+data/*.conf
+data/exports/
+
+.env
+.DS_Store

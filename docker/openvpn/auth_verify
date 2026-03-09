@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -eu
+
+export AUTH_CACHE_DB_PATH="${AUTH_CACHE_DB_PATH:-/var/lib/openvpn-admin/auth-cache.db}"
+
+exec node /opt/openvpn-admin/auth_verify.mjs "$@"

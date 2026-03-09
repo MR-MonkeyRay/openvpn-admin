@@ -1,0 +1,70 @@
+<%- include('helpers') %>
+<%- include('layout-top', { pageTitle }) %>
+<%
+  const currentUser = user || currentUser || null;
+  const role = currentUser?.role || roleName || 'admin';
+  const items = navItems(role);
+  const flashItems = safeArray(flashes || flashMessages || []);
+  const appMeta = meta || appMeta || {};
+%>
+<div class="shell">
+  <div class="page-grid">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-badge">OV</div>
+        <div class="brand-copy">
+          <strong>OpenVPN Admin</strong>
+          <small>单机宿主管理与连接审计</small>
+        </div>
+      </div>
+
+      <div class="callout">
+        <div class="panel-header">
+          <div>
+            <div class="nav-label">当前登录</div>
+            <div class="card-title"><%= currentUser?.displayName || currentUser?.username || '管理员' %></div>
+          </div>
+          <span class="status-pill <%= statusTone(currentUser?.status || 'active') %>"><%= currentUser?.role || role %></span>
+        </div>
+        <div class="footer-note">最近 Web 登录：<%= fmtDate(currentUser?.lastWebLoginAt || currentUser?.lastLoginAt) %></div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">导航</div>
+        <ul class="nav-list">
+          <% items.forEach((item) => { %>
+            <li>
+              <a class="nav-link <%= activeNav === item.key ? 'is-active' : '' %>" href="<%= item.href %>">
+                <span><%= item.label %></span>
+                <em><%= item.hint %></em>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">实例信息</div>
+        <div class="stacked-list">
+          <div class="list-item">
+            <div class="meta">实例名</div>
+            <strong><%= appMeta.instanceName || 'server' %></strong>
+          </div>
+          <div class="list-item">
+            <div class="meta">管理接口</div>
+            <strong><%= appMeta.managementSocket || '/run/openvpn/server.sock' %></strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <form method="post" action="/auth/logout">
+          <button class="button button-ghost" type="submit">退出登录</button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="main">
+      <% flashItems.forEach((flash) => { %>
+        <div class="flash flash-<%= flash.type || 'success' %>"><%= flash.message || flash %></div>
+      <% }) %>

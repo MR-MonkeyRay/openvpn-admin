@@ -1,0 +1,170 @@
+<%- include('partials/app-shell', { pageTitle: '总览', activeNav: 'dashboard', user, currentUser, flashes, flashMessages, meta, appMeta }) %>
+<%
+  const stats = dashboardStats || stats || {};
+  const onlineSessions = safeArray(sessions || onlineSessions);
+  const recentAudit = safeArray(auditLogs || recentAuditLogs);
+  const alerts = safeArray(alertsList || alerts);
+  const config = configSummary || {};
+  const service = serviceStatus || {};
+%>
+<section class="hero">
+  <div class="hero-header">
+    <div>
+      <span class="badge">管理员总览</span>
+      <h1><%= service.serviceName || 'openvpn-server@server.service' %></h1>
+      <p>聚合查看宿主机 OpenVPN 服务状态、在线连接、最近配置变更与审计事件。</p>
+    </div>
+    <div class="status-row">
+      <span class="status-pill <%= statusTone(service.state || stats.serviceState || 'running') %>"><%= service.stateLabel || service.state || stats.serviceState || 'running' %></span>
+      <span class="badge">版本 <%= config.version || stats.currentVersion || 'v1' %></span>
+    </div>
+  </div>
+</section>
+
+<section class="metric-grid">
+  <article class="metric">
+    <div class="stat-label">在线会话</div>
+    <div class="metric-value"><%= stats.onlineCount ?? onlineSessions.length %></div>
+    <div class="metric-trend">活跃连接正在通过 management socket 聚合。</div>
+  </article>
+  <article class="metric">
+    <div class="stat-label">启用用户</div>
+    <div class="metric-value"><%= stats.enabledUsers ?? '--' %></div>
+    <div class="meta">含管理员与普通用户。</div>
+  </article>
+  <article class="metric">
+    <div class="stat-label">近 24 小时认证失败</div>
+    <div class="metric-value"><%= stats.failedAuthCount ?? 0 %></div>
+    <div class="meta">用于判断撞库或错误配置风险。</div>
+  </article>
+  <article class="metric">
+    <div class="stat-label">待回滚版本</div>
+    <div class="metric-value"><%= stats.rollbackReadyCount ?? 1 %></div>
+    <div class="meta">可从配置页面一键回退。</div>
+  </article>
+</section>
+
+<div class="grid-two">
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h3>服务与配置摘要</h3>
+        <div class="table-meta">最近应用时间：<%= fmtDate(config.lastAppliedAt || service.lastRestartAt) %></div>
+      </div>
+      <div class="inline-actions">
+        <a class="button button-secondary button-small" href="/config">进入配置</a>
+        <a class="button button-ghost button-small" href="/audit">查看审计</a>
+      </div>
+    </div>
+    <div class="kv-grid">
+      <div class="kv"><small>监听地址</small><strong><%= config.bindAddress || '0.0.0.0' %></strong></div>
+      <div class="kv"><small>协议 / 端口</small><strong><%= config.protocol || 'udp' %> / <%= config.port || 1194 %></strong></div>
+      <div class="kv"><small>地址池</small><strong><%= config.network || '10.8.0.0/24' %></strong></div>
+      <div class="kv"><small>认证方式</small><strong><%= config.authMode || 'username + password' %></strong></div>
+      <div class="kv"><small>CCD 目录</small><strong><%= config.ccdPath || '/etc/openvpn/ccd' %></strong></div>
+      <div class="kv"><small>日志路径</small><strong><%= config.logPath || '/var/log/openvpn.log' %></strong></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h3>风险提醒</h3>
+        <div class="table-meta">为空时表示当前没有显著异常。</div>
+      </div>
+    </div>
+    <% if (alerts.length) { %>
+      <div class="stacked-list">
+        <% alerts.forEach((alert) => { %>
+          <div class="list-item">
+            <div class="status-row">
+              <strong><%= alert.title || alert.level || '提醒' %></strong>
+              <span class="status-pill <%= statusTone(alert.level || alert.status || 'warning') %>"><%= alert.level || alert.status || 'warning' %></span>
+            </div>
+            <p class="hint"><%= alert.message || alert.description || '暂无描述' %></p>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <div class="empty-state">
+        <h3>当前没有需要处理的告警</h3>
+        <p>如果出现认证失败飙升、配置应用失败或服务离线，会优先显示在这里。</p>
+      </div>
+    <% } %>
+  </section>
+</div>
+
+<div class="grid-two">
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">在线连接</h3>
+        <div class="table-meta">按用户名聚合，适合禁用后快速踢线。</div>
+      </div>
+      <a class="button button-ghost button-small" href="/audit#sessions">会话详情</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>用户名</th>
+            <th>来源地址</th>
+            <th>虚拟地址</th>
+            <th>连接时间</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (onlineSessions.length) { %>
+            <% onlineSessions.forEach((session) => { %>
+              <tr>
+                <td><strong><%= session.username || session.commonName || '--' %></strong></td>
+                <td><%= session.remoteAddress || '--' %></td>
+                <td><%= session.virtualAddress || '--' %></td>
+                <td><%= fmtDate(session.connectedAt || session.since) %></td>
+                <td><span class="status-pill <%= statusTone(session.status || 'connected') %>"><%= session.status || 'connected' %></span></td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr>
+              <td colspan="5">
+                <div class="empty-state">
+                  <h3>暂无在线连接</h3>
+                  <p>如果客户端上线，这里会显示来源地址和虚拟地址。</p>
+                </div>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="table-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">最近审计</h3>
+        <div class="table-meta">聚焦最近的配置、用户与踢线操作。</div>
+      </div>
+    </div>
+    <div class="stacked-list">
+      <% if (recentAudit.length) { %>
+        <% recentAudit.slice(0, 6).forEach((entry) => { %>
+          <div class="list-item audit-item">
+            <div class="status-row">
+              <strong><%= entry.summary || entry.actionType || '系统操作' %></strong>
+              <span class="meta"><%= fmtDate(entry.createdAt) %></span>
+            </div>
+            <div class="audit-meta"><%= entry.actorName || entry.actorUsername || 'system' %> · <%= entry.targetType || 'resource' %></div>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <div class="empty-state">
+          <h3>尚无审计记录</h3>
+          <p>当管理员创建用户、应用配置或断开会话时，会在这里出现。</p>
+        </div>
+      <% } %>
+    </div>
+  </section>
+</div>
+<%- include('partials/app-shell-bottom') %>
