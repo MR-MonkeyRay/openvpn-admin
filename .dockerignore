@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+.omx
+node_modules
+data
+docs
+tests
+*.md
+!README.md
+.env
+.env.*
+.DS_Store
+plans

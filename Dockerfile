@@ -1,5 +1,9 @@
 FROM node:24-bookworm-slim AS base
 
+ARG VERSION=dev
+ARG BUILD_DATE
+ARG VCS_REF
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
@@ -19,6 +23,18 @@ RUN pnpm build
 RUN pnpm prune --prod
 
 FROM base AS runtime
+
+ARG VERSION=dev
+ARG BUILD_DATE
+ARG VCS_REF
+
+LABEL org.opencontainers.image.title="openvpn-admin"
+LABEL org.opencontainers.image.description="OpenVPN management panel with Web UI"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.created="${BUILD_DATE}"
+LABEL org.opencontainers.image.revision="${VCS_REF}"
+LABEL org.opencontainers.image.source="https://github.com/mr-monkeyray/openvpn-admin"
+LABEL org.opencontainers.image.licenses="MIT"
 
 ENV NODE_ENV=production
 ENV PORT=3000

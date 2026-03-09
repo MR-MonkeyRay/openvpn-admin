@@ -94,7 +94,7 @@ export function createConfiguredApp(env = process.env) {
     authCachePath: config.authCachePath,
   });
 
-  const app = createApp({
+  const { app, bootstrap } = createApp({
     repo,
     paths: {
       serverConfigPath: config.serverConfigPath,
@@ -104,12 +104,12 @@ export function createConfiguredApp(env = process.env) {
     options: config.options,
   });
 
-  return { app, repo, config };
+  return { app, bootstrap, repo, config };
 }
 
 export async function bootstrapAndListen(env = process.env) {
-  const { app, config } = createConfiguredApp(env);
-  await app.locals.bootstrap();
+  const { app, bootstrap, config } = createConfiguredApp(env);
+  await bootstrap();
 
   return new Promise((resolve) => {
     const server = app.listen(config.port, () => {
